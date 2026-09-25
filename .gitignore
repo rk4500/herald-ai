@@ -11,3 +11,7 @@ wheels/
 
 # Enviroment files
 .env
+
+# Databases
+database.db*
+session.db

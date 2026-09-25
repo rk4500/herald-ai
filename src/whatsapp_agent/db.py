@@ -16,7 +16,27 @@ def init_db():
     chat_jid TEXT,
     msg_id TEXT,
     sender TEXT,
+    sender_name TEXT,
     text TEXT,
     timestamp INTEGER,
     PRIMARY KEY (chat_jid, msg_id)   -- dedupes overlapping backfills
+    );""")
+
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS reactions (
+    chat_jid TEXT,
+    msg_id TEXT,
+    sender TEXT,
+    sender_name TEXT,
+    text TEXT,
+    timestamp INTEGER,
+    PRIMARY KEY (chat_jid, msg_id, sender)   -- dedupes overlapping backfills
+    );""")
+
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS contacts (
+    pn TEXT,
+    lid, TEXT,
+    full_name TEXT,
+    PRIMARY KEY (pn)
     );""")
