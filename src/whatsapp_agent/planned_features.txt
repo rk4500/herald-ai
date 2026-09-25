@@ -1,0 +1,2 @@
+First class citizen chat search for agent
+So search particular chat, start/end date, number of messages, ascending descending.

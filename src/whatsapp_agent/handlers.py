@@ -78,17 +78,18 @@ def on_message(client: NewClient, message: MessageEv) -> None:
             client.reply_message("pong", message)
             rows = conn.execute(
                 """
-            SELECT text FROM messages
+            SELECT text, sender_name FROM messages
             WHERE chat_jid = ?
             ORDER BY timestamp DESC
             LIMIT 10;
             """,
                 (str(chat),),
-            )
+            ).fetchall()
             message_str = ""
-            for row in rows:
-                print(row)
-                message_str += row[0] + "\n"
+            for text, name in rows:
+                name = name or "Unknown"
+                first_name = name.split(" ")[0]
+                message_str += f"{first_name}: {text}\n"
             print(message_str)
             client.reply_message(message_str, message)
 
