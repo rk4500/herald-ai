@@ -14,7 +14,8 @@ def on_message(client: NewClient, message: MessageEv) -> None:
     print(message)
     with db_lock, conn:
         sender_name = resolve_or_save_name(message)
-        if message.Message.reactionMessage:
+        if message.Info.Type == "reaction":
+            reaction = message.Message.reactionMessage.text or "Removed"
             # Saving the reaction with resolved sender name
             conn.execute(
                 """
@@ -27,14 +28,17 @@ def on_message(client: NewClient, message: MessageEv) -> None:
             """,
                 (
                     str(chat),
-                    str(message.Message.reactionMessage.ID),
+                    str(message.Message.reactionMessage.key.ID),
                     str(message.Info.MessageSource.Sender),
                     sender_name,
-                    (text or "Removed"),
+                    reaction,
                     message.Info.Timestamp,
                 ),
             )
-            print(f"Row logged with reaction content: {text}\nSent by: {sender_name}")
+            print(
+                f"Row logged with reaction content: {reaction}\nSent by: {sender_name}"
+            )
+            return
 
         if message.Info.MessageSource.Chat.User == "status":
             print("Not an actual message (status update)")
