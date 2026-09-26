@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-whatsapp-agent = "whatsapp_agent:main"
+whatsapp-agent = "whatsapp_agent.__main__:main"
 
 [build-system]
 requires = ["uv_build>=0.12.10,<0.13.0"]

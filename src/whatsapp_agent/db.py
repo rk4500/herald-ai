@@ -25,7 +25,7 @@ def init_db():
     conn.execute("""
     CREATE TABLE IF NOT EXISTS reactions (
     chat_jid TEXT,
-    msg_id TEXT,
+    msg_id TEXT, -- This is the ID of the message being reacted to, so if you change reactions the same row will be updated, this table only holds current state, not history of reactions on a single message
     sender TEXT,
     sender_name TEXT,
     text TEXT,

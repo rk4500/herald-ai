@@ -2,8 +2,8 @@ from neonize.client import NewClient
 from neonize.events import MessageEv
 from neonize import extract_text
 
-from whatsapp_agent.agent import start_conversation
-from whatsapp_agent.chat_info import resolve_or_save_name
+from .agent import start_conversation
+from .chat_info import resolve_or_save_name
 from .client import client
 from .db import conn, db_lock
 
@@ -12,7 +12,7 @@ from .db import conn, db_lock
 def on_message(client: NewClient, message: MessageEv) -> None:
     text = extract_text(message.Message)
     chat = message.Info.MessageSource.Chat
-    print(message)
+    # print(message)
     with db_lock, conn:
         sender_name = resolve_or_save_name(message)
         if message.Info.Type == "reaction":
