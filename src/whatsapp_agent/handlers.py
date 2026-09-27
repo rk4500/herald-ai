@@ -8,6 +8,12 @@ from .client import client
 from .db import conn, db_lock
 
 
+@client.event(event=OfflineSyncCompletedEv)
+def on_offline_sync(NewClient, OfflineSyncCompletedEv) -> None:
+    print("OfflineSyncEv Importing/Syncing Chats")
+    import_chats()
+
+
 @client.event(MessageEv)
 def on_message(client: NewClient, message: MessageEv) -> None:
     text = extract_text(message.Message)
