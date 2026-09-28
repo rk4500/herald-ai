@@ -7,7 +7,7 @@ conn.execute("PRAGMA journal_mode=WAL")
 conn.execute("PRAGMA busy_timeout=5000")
 conn.execute("PRAGMA foreign_keys=ON")
 
-db_lock = threading.Lock()
+db_lock = threading.RLock()
 
 
 def init_db():
@@ -19,6 +19,8 @@ def init_db():
     sender_name TEXT,
     text TEXT,
     timestamp INTEGER,
+    quoted_text TEXT,
+    mentioned_jids TEXT,
     PRIMARY KEY (chat_jid, msg_id)   -- dedupes overlapping backfills
     );""")
 

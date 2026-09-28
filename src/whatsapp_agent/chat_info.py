@@ -1,3 +1,4 @@
+from pkgutil import resolve_name
 import sqlite3
 
 from neonize.events import MessageEv
@@ -71,10 +72,7 @@ def resolve_or_save_name(message: MessageEv) -> str:
     """Resolves name using JID (pn or lid) and saved contact map. Returns saved name if contact found, else saves and returns Push Name"""
     sender = message.Info.MessageSource.Sender
     user_id = sender.User
-    name = conn.execute(
-        f"SELECT full_name FROM contacts WHERE {('lid' if sender.Server == 'lid' else 'pn')} = ? LIMIT 1",
-        (user_id,),
-    ).fetchone()  # Ternary statment incase main sender id is pn (never actually seen this happen)
+    name = resolve_name_jid(user_id, sender.Server)
     if name:
         return name[0]
 
@@ -94,10 +92,7 @@ def resolve_or_save_name(message: MessageEv) -> str:
         lid = user_id
         pn = alt_user_id
 
-    name = conn.execute(
-        f"SELECT full_name FROM contacts WHERE {('lid' if alt_sender.Server == 'lid' else 'pn')} = ? LIMIT 1",
-        (alt_user_id,),
-    ).fetchone()
+    name = resolve_name_jid(alt_user_id, alt_sender.Server)
 
     if not name and push_name == "Unknown":
         return push_name  # No point saving a blank push name
@@ -117,3 +112,13 @@ def resolve_or_save_name(message: MessageEv) -> str:
     print("New contact saved")
 
     return name
+
+
+def resolve_name_jid(jid: str, server: str) -> str | None:
+    name = conn.execute(
+        f"SELECT full_name FROM contacts WHERE {('lid' if server == 'lid' else 'pn')} = ? LIMIT 1",
+        (jid,),
+    ).fetchone()
+    if name:
+        return name[0]
+    return None

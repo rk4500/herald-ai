@@ -8,6 +8,8 @@ from neonize.proto.Neonize_pb2 import JID
 from datetime import datetime, timedelta
 from groq import Groq
 
+from whatsapp_agent.chat_info import resolve_name_jid
+
 from .config import GROQ_MODEL
 from .db import db_lock, conn
 
@@ -16,7 +18,7 @@ MODEL = GROQ_MODEL
 
 
 def get_recent_messages(
-    chat_jid: JID, timedelta_hours: int = 1, timedelta_minutes: int = 0
+    chat_jid: JID, timedelta_hours: int = 1, timedelta_minutes: int = 0, tail: int = 0
 ) -> str:
     """Get recent messages from the current chat where the agent was invoked. Returns a block of messages from oldest(within timedelta) to newset. Use timedelta_  hours and timedelta_minutes based on the user message. Eg: What did i miss in the last 2 and a half hours would require 2 and 30 as the values for the 2 paramenters"""
     current_time = datetime.now()
@@ -28,20 +30,32 @@ def get_recent_messages(
 
     with db_lock, conn:
         rows = conn.execute(
-            """
-        SELECT text, sender_name FROM messages
+            f"""
+        SELECT text, sender_name, mentioned_jids, quoted_text FROM messages
         WHERE chat_jid = ?
-        AND timestamp >= ?
+        {"AND timestamp >= ?" if tail == 0 else ""}
         ORDER BY timestamp ASC
-        LIMIT 500;
+        {"LIMIT 500" if tail == 0 else "LIMIT " + str(tail)};
         """,
             (str(chat_jid), catchup_timestamp),
         ).fetchall()
     # Construct agent context with name and message content pairs
     message_str = ""
-    for text, name in rows:
+    for text, name, mentioned_jids, quoted_text in rows:
         name = name or "Unknown"
         first_name = name.split(" ")[0]
+        if mentioned_jids:
+            jids = json.loads(mentioned_jids)
+            for jid in jids:
+                id = jid.split("@")[0]
+                server = jid.split("@")[1]
+                mentioned_name = resolve_name_jid(id, server)
+                text = text.replace(f"@{jid}", f"@{mentioned_name}")
+        if quoted_text:
+            quoted_text = (
+                quoted_text if len(quoted_text) <= 80 else f"{quoted_text[:80]}..."
+            )
+            message_str += f'{first_name} replying to "{quoted_text}": {text}'
         message_str += f"{first_name}: {text}\n"
     print(message_str)
     return message_str
