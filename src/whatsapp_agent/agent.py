@@ -6,6 +6,7 @@ from groq.types.chat import (
 from neonize.events import MessageEv
 from neonize.proto.Neonize_pb2 import JID
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from groq import Groq
 
 from .client import client as neonize_client
@@ -15,6 +16,11 @@ from .db import db_lock, conn
 
 groq_client = Groq()
 MODEL = GROQ_MODEL
+
+
+def get_current_time() -> str:
+    india_time = datetime.now((ZoneInfo("Asia/Kolkata")))
+    return india_time.strftime("%Y-%m-%d %H:%M")
 
 
 def get_recent_messages(
@@ -96,10 +102,11 @@ def start_conversation(messageEv: MessageEv, user_prompt: str) -> str | None:
                 You are Herald, an AI assistant that helps the user, {neonize_client.get_me().PushName}, keep up with their WhatsApp chats. 
                 Use the get_recent_messages tool if the user asks you to catch them up or tell them what they missed
                 Only talk about capabilites you currently have, based off the tools availalbe to you and their descriptions, but don't expose toolnames publicly, just convert to what you can achieve with the tools. Never Overstate.
-                Right now you can only summarise from the chat you are invoked and can take a specific time only, no relative time like today morning (you don't know what time it is right now). Don't expalin all this to the user though.
-                When summarizing do NOT try to make a table of messages actual verbatim messages. ONLY return a summary, in points.
+                Right now you can only summarise from the chat you are invoked. Current time is {get_current_time()}. Use this to translate any relative times provided into absolute timedeltas. If vague time provided, like since morning, or a few hours, choose yourself, don't ask the user to clarify. Only if there's no real time provided should you reiterate the requirements. 
+                Don't expalin all this to the user though.
+                When summarizing do NOT try to make a table of messages actual verbatim messages. ONLY return a summary, in points. With the number of hours if less than 24, or x number of days (no range) being summarized in the title.
                 All formatting outside of embolding with SINGLE asterisks should be text, not markdown since whatsapp doesn't render markdown.
-                Do not waste tokens answering off topic questions like what a linked list is, only questions related to the chats and yourself. Just say 'Sorry that's out of my scope at the moment.' In case of off topic questions.
+                Do not waste tokens answering off topic questions like what a linked list is, only questions related to the chats, the user and yourself. Just say 'Sorry that's out of my scope at the moment.' In case of off topic questions.
                 Lastly, do NOT tell the user that you won't do the things you're instructed to avoid like not providing verbatim chats, just don't do them.""",
         },
         {"role": "user", "content": user_prompt},

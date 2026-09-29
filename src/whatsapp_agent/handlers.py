@@ -22,7 +22,7 @@ def on_offline_sync(NewClient, OfflineSyncCompletedEv) -> None:
 def on_message(client: NewClient, messageEv: MessageEv) -> None:
     message = messageEv.Message
     chat = messageEv.Info.MessageSource.Chat
-    print(messageEv)
+    # print(messageEv)
 
     # Extracting text, mentioned JIDs and quoted responses, if any.
     text = ""
