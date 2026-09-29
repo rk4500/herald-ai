@@ -32,4 +32,16 @@ def add_mentions_replies_messages_table():
 
 
 if __name__ == "__main__":
+    conn = sqlite3.connect("data/database.db")
     # add_mentions_replies_messages_table()
+    with conn:
+        rows = conn.execute(
+            "SELECT sql FROM sqlite_schema WHERE name = 'messages';"
+        ).fetchall()
+
+        for row in rows:
+            print(row)
+            if "quoted_text" in row[0]:
+                print("its there")
+            else:
+                print("Not there")
