@@ -4,6 +4,8 @@ from neonize import extract_text
 import typing
 import json
 
+from neonize.utils import Jid2String
+
 from .agent import start_conversation
 from .chat_info import import_chats, resolve_name_jid, resolve_or_save_name
 from .client import client
@@ -98,7 +100,7 @@ def on_message(client: NewClient, messageEv: MessageEv) -> None:
             (
                 str(chat),
                 str(messageEv.Info.ID),
-                str(messageEv.Info.MessageSource.Sender),
+                Jid2String(messageEv.Info.MessageSource.Sender),
                 sender_name,
                 text,
                 messageEv.Info.Timestamp,

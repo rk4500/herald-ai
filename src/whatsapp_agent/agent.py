@@ -39,6 +39,7 @@ def get_recent_messages(
         """,
             (str(chat_jid), catchup_timestamp),
         ).fetchall()
+
     # Construct agent context with name and message content pairs
     message_str = ""
     for text, name, mentioned_jids, quoted_text in rows:

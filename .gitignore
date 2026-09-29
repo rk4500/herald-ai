@@ -16,3 +16,6 @@ wheels/
 data/**
 database.db*
 session.db*
+
+# Temp docker builds
+*.tar

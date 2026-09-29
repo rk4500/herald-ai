@@ -1,7 +1,8 @@
-from pkgutil import resolve_name
 import sqlite3
 
 from neonize.events import MessageEv
+
+from .user_info import primary_user_lid, primary_user_pn
 from .db import conn, db_lock
 from .config import NEONIZE_PATH
 
@@ -115,6 +116,8 @@ def resolve_or_save_name(message: MessageEv) -> str:
 
 
 def resolve_name_jid(jid: str, server: str) -> str | None:
+    if jid == primary_user_lid or jid == primary_user_pn:
+        return "[Me]"
     name = conn.execute(
         f"SELECT full_name FROM contacts WHERE {('lid' if server == 'lid' else 'pn')} = ? LIMIT 1",
         (jid,),
