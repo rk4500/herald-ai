@@ -8,12 +8,12 @@ from neonize.proto.Neonize_pb2 import JID
 from datetime import datetime, timedelta
 from groq import Groq
 
+from .client import client as neonize_client
 from whatsapp_agent.chat_info import resolve_name_jid
-
 from .config import GROQ_MODEL
 from .db import db_lock, conn
 
-client = Groq()
+groq_client = Groq()
 MODEL = GROQ_MODEL
 
 
@@ -21,6 +21,7 @@ def get_recent_messages(
     chat_jid: JID, timedelta_hours: int = 1, timedelta_minutes: int = 0, tail: int = 0
 ) -> str:
     """Get recent messages from the current chat where the agent was invoked. Returns a block of messages from oldest(within timedelta) to newset. Use timedelta_  hours and timedelta_minutes based on the user message. Eg: What did i miss in the last 2 and a half hours would require 2 and 30 as the values for the 2 paramenters"""
+    additional_prompt = """Use this list of messages in the form sender: text, in order from oldest to newest, to create a summary of discussions in the chat. The sender "[Me]" represents the user. Use this to say "You said..." instead of treating the user as a general chat member."""
     current_time = datetime.now()
     catchup_time = current_time - timedelta(
         hours=timedelta_hours, minutes=timedelta_minutes
@@ -41,7 +42,7 @@ def get_recent_messages(
         ).fetchall()
 
     # Construct agent context with name and message content pairs
-    message_str = ""
+    message_str = additional_prompt
     for text, name, mentioned_jids, quoted_text in rows:
         name = name or "Unknown"
         first_name = name.split(" ")[0]
@@ -57,7 +58,8 @@ def get_recent_messages(
                 quoted_text if len(quoted_text) <= 80 else f"{quoted_text[:80]}..."
             )
             message_str += f'{first_name} replying to "{quoted_text}": {text}'
-        message_str += f"{first_name}: {text}\n"
+        else:
+            message_str += f"{first_name}: {text}\n"
     print(message_str)
     return message_str
 
@@ -67,7 +69,7 @@ tools: list[ChatCompletionToolParam] = [
         "type": "function",
         "function": {
             "name": "get_recent_messages",
-            "description": "Get recent messages from the current chat where the agent was invoked. Use timedelta_hours and timedelta_minutes based on the user message. Eg: What did i miss in the last 2 and a half hours would require 2 and 30 as the values for the 2 paramenters. If left blank, a default of 1 hour and 0 minutes is set.",
+            "description": "Get recent messages from the current chat where the agent was invoked. Use timedelta_hours and timedelta_minutes based on the user message. Eg: What did i miss in the last 2 and a half hours would require 2 and 30 as the values for the 2 paramenters. If blank, 1 hour is set",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -90,8 +92,8 @@ def start_conversation(messageEv: MessageEv, user_prompt: str) -> str | None:
     messages: list[ChatCompletionMessageParam] = [
         {
             "role": "system",
-            "content": """
-                You are Herald, an AI assistant that helps the user keep up with their WhatsApp chats. 
+            "content": f"""
+                You are Herald, an AI assistant that helps the user, {neonize_client.get_me().PushName}, keep up with their WhatsApp chats. 
                 Use the get_recent_messages tool if the user asks you to catch them up or tell them what they missed
                 Only talk about capabilites you currently have, based off the tools availalbe to you and their descriptions, but don't expose toolnames publicly, just convert to what you can achieve with the tools. Never Overstate.
                 Right now you can only summarise from the chat you are invoked and can take a specific time only, no relative time like today morning (you don't know what time it is right now). Don't expalin all this to the user though.
@@ -104,7 +106,7 @@ def start_conversation(messageEv: MessageEv, user_prompt: str) -> str | None:
     ]
     print(f"Inital message: {messages}")
 
-    response = client.chat.completions.create(
+    response = groq_client.chat.completions.create(
         model=MODEL, messages=messages, tools=tools, tool_choice="auto"
     )
     print(f"Inital response: {response}")
@@ -136,6 +138,8 @@ def start_conversation(messageEv: MessageEv, user_prompt: str) -> str | None:
                 }
             )
 
-        second_response = client.chat.completions.create(model=MODEL, messages=messages)
+        second_response = groq_client.chat.completions.create(
+            model=MODEL, messages=messages
+        )
         return second_response.choices[0].message.content
     return response_message.content

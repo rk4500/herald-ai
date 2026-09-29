@@ -1,8 +1,8 @@
 import sqlite3
 
 from neonize.events import MessageEv
+from .client import client
 
-from .user_info import primary_user_lid, primary_user_pn
 from .db import conn, db_lock
 from .config import NEONIZE_PATH
 
@@ -39,35 +39,6 @@ def import_chats():
             except sqlite3.Error as e:
                 print("Detach neonize_store failed:", e)
 
-    # contacts = client.contact.get_all_contacts()
-    # print(len(contacts))
-    # print("------- --------")
-    # contact = contacts[150]
-
-    # for field, value in contact.ListFields():
-    #     print(field.name, "=", value)
-
-    # for c in contacts:
-    #     if c.Info.FullName == "Maiya":
-    #         print(c.ListFields())
-
-    # print("-------- ----------")
-    #
-    # JIDClass = type(contact.JID)  # from any real contact entry
-    # lid_jid = JIDClass(
-    #     User="918657233905",
-    #     RawAgent=0,
-    #     Device=0,
-    #     Integrator=0,
-    #     Server="s.whatsapp.net",
-    #     IsEmpty=False,
-    # )  # the raw mention token, as a proper JID object
-    #
-    # info = client.contact.get_contact(
-    #     lid_jid
-    # )  # or get_contact_info — whatever the exact method name is
-    # print(info)
-
 
 def resolve_or_save_name(message: MessageEv) -> str:
     """Resolves name using JID (pn or lid) and saved contact map. Returns saved name if contact found, else saves and returns Push Name"""
@@ -75,7 +46,7 @@ def resolve_or_save_name(message: MessageEv) -> str:
     user_id = sender.User
     name = resolve_name_jid(user_id, sender.Server)
     if name:
-        return name[0]
+        return name
 
     push_name = message.Info.Pushname
     if not push_name:
@@ -116,7 +87,7 @@ def resolve_or_save_name(message: MessageEv) -> str:
 
 
 def resolve_name_jid(jid: str, server: str) -> str | None:
-    if jid == primary_user_lid or jid == primary_user_pn:
+    if jid == client.get_me().JID.User or jid == client.get_me().LID.User:
         return "[Me]"
     name = conn.execute(
         f"SELECT full_name FROM contacts WHERE {('lid' if server == 'lid' else 'pn')} = ? LIMIT 1",

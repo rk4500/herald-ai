@@ -30,9 +30,7 @@ def on_message(client: NewClient, messageEv: MessageEv) -> None:
     json_jids: str | None = None
     if message.conversation:
         text = message.conversation
-        print("is conversation")
     else:
-        print("okay we're here")
         for field_name in [
             "extendedTextMessage",
             "imageMessage",
@@ -41,7 +39,6 @@ def on_message(client: NewClient, messageEv: MessageEv) -> None:
         ]:
             if message.HasField(field_name):
                 field: typing.Any = getattr(message, field_name, None)
-                print(field, "-----")
                 text = getattr(field, "text", "") or getattr(field, "caption", "")
                 if field.contextInfo.HasField("quotedMessage"):
                     quotedText = extract_text(field.contextInfo.quotedMessage)
@@ -146,7 +143,8 @@ def on_message(client: NewClient, messageEv: MessageEv) -> None:
                         else f"{quoted_text[:80]}..."
                     )
                     message_str += f'{first_name} replying to "{quoted_text}": {text}'
-                message_str += f"{first_name}: {text}\n"
+                else:
+                    message_str += f"{first_name}: {text}\n"
 
             client.reply_message(message_str, messageEv)
 
