@@ -28,9 +28,9 @@ def get_last_activity_time(chat_jid: JID) -> float:
         activity_time: int = conn.execute(
             """
         SELECT MAX(ts) from (
-            SELECT timestamp AS ts FROM messages WHERE chat_jid = ?
+            SELECT timestamp AS ts FROM messages WHERE chat_jid = ? AND sender_name = '[Me]'
             UNION ALL
-            SELECT timestamp AS ts FROM reactions WHERE chat_jid = ?
+            SELECT timestamp AS ts FROM reactions WHERE chat_jid = ? AND sender_name = '[Me]'
         )
         """,
             (str(chat_jid), str(chat_jid)),
@@ -65,9 +65,9 @@ def get_messages(chat_jid: JID, catchup_timestamp: float, tail: int = 0) -> str:
         if mentioned_jids:
             jids = json.loads(mentioned_jids)
             for jid in jids:
-                id = jid.split("@")[0]
-                server = jid.split("@")[1]
-                mentioned_name = resolve_name_jid(id, server)
+                mentioned_name = resolve_name_jid(jid, "lid") or resolve_name_jid(
+                    jid, ""
+                )
                 text = text.replace(f"@{jid}", f"@{mentioned_name}")
         if quoted_text:
             quoted_text = (

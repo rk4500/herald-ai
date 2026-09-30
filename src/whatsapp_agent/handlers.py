@@ -6,7 +6,7 @@ import typing
 import json
 from datetime import datetime, timedelta
 
-from .agent import start_conversation
+from .agent import get_messages_since_active, start_conversation
 from .chat_info import import_chats, resolve_name_jid, resolve_or_save_name
 from .client import client
 from .db import conn, db_lock
@@ -61,13 +61,15 @@ def on_message(client: NewClient, messageEv: MessageEv) -> None:
                 json_jids = json.dumps(jids) if jids else None
 
     # Ai calls are done before the current message is saved to db so it doesn't come in message transcript and confuse it or mess up last activiy time
-    if (
-        is_live_message(messageEv.Info.Timestamp)
-        and messageEv.Info.MessageSource.IsFromMe
-        and ("/ai" in text[0:3] or "/herald" in text[0:7])
-    ):
-        response = start_conversation(messageEv, text) or "Groq Error"
-        client.reply_message(response, messageEv)
+    if is_live_message(messageEv.Info.Timestamp):
+        if messageEv.Info.MessageSource.IsFromMe and (
+            "/ai" in text[0:3] or "/herald" in text[0:7]
+        ):
+            response = start_conversation(messageEv, text) or "Groq Error"
+            client.reply_message(response, messageEv)
+        elif "/recent" in text[0:7]:
+            messages = get_messages_since_active(chat)
+            print(messages)
 
     # Saving reactions, messages etc.
     with db_lock, conn:
