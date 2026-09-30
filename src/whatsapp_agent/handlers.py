@@ -1,15 +1,27 @@
 from neonize.client import NewClient
 from neonize.events import MessageEv, OfflineSyncCompletedEv
 from neonize import extract_text
+from neonize.utils import Jid2String
 import typing
 import json
-
-from neonize.utils import Jid2String
+from datetime import datetime, timedelta
 
 from .agent import start_conversation
 from .chat_info import import_chats, resolve_name_jid, resolve_or_save_name
 from .client import client
 from .db import conn, db_lock
+
+TIME_THRESHOLD_SEC: int = 10
+
+
+def is_live_message(timestamp: float) -> bool:
+    now = datetime.now()
+    threshold_timestamp = (
+        (now - timedelta(seconds=TIME_THRESHOLD_SEC)).timestamp() * 1000
+    )  # Multiplied by thousand to get threshold_timestamp and actual timestamp in same units
+    if timestamp > threshold_timestamp:
+        return True
+    return False
 
 
 @client.event(event=OfflineSyncCompletedEv)
@@ -48,6 +60,16 @@ def on_message(client: NewClient, messageEv: MessageEv) -> None:
                     jids.append(jid.split("@")[0])
                 json_jids = json.dumps(jids) if jids else None
 
+    # Ai calls are done before the current message is saved to db so it doesn't come in message transcript and confuse it or mess up last activiy time
+    if (
+        is_live_message(messageEv.Info.Timestamp)
+        and messageEv.Info.MessageSource.IsFromMe
+        and ("/ai" in text[0:3] or "/herald" in text[0:7])
+    ):
+        response = start_conversation(messageEv, text) or "Groq Error"
+        client.reply_message(response, messageEv)
+
+    # Saving reactions, messages etc.
     with db_lock, conn:
         sender_name = resolve_or_save_name(messageEv)
         if messageEv.Info.Type == "reaction":
@@ -86,6 +108,47 @@ def on_message(client: NewClient, messageEv: MessageEv) -> None:
             else:
                 text = "Other message type"
 
+        # To disable listening for commands from others
+        if messageEv.Info.MessageSource.IsFromMe and is_live_message(
+            messageEv.Info.Timestamp
+        ):
+            # Test response to see if messsage logging and building works properly
+            if text == "ping":
+                rows = conn.execute(
+                    """
+                    SELECT text, sender_name, mentioned_jids, quoted_text FROM messages
+                    WHERE chat_jid = ?
+                    ORDER BY timestamp DESC
+                    LIMIT 10;
+                    """,
+                    (str(chat),),
+                ).fetchall()
+                # Construct agent context with name and message content pairs
+                message_str = ""
+                for text, name, mentioned_jids, quoted_text in rows:
+                    name = name or "Unknown"
+                    first_name = name.split(" ")[0]
+                    if mentioned_jids:
+                        jids = json.loads(mentioned_jids)
+                        for jid in jids:
+                            id = jid.split("@")[0]
+                            server = jid.split("@")[1]
+                            mentioned_name = resolve_name_jid(id, server)
+                            text = text.replace(f"@{jid}", f"@{mentioned_name}")
+                    if quoted_text:
+                        quoted_text = (
+                            quoted_text
+                            if len(quoted_text) <= 80
+                            else f"{quoted_text[:80]}..."
+                        )
+                        message_str += (
+                            f'{first_name} replying to "{quoted_text}": {text}'
+                        )
+                    else:
+                        message_str += f"{first_name}: {text}\n"
+
+                client.reply_message(message_str, messageEv)
+
         # Saving the message with resolved sender name
         conn.execute(
             """
@@ -108,48 +171,3 @@ def on_message(client: NewClient, messageEv: MessageEv) -> None:
         print(
             f"Row logged with text content: {text}\nSent by: {sender_name} with mentioned jids: {json_jids}\nQuoted text: {quotedText}"
         )
-
-        # To disable listening for commands from others
-        if not messageEv.Info.MessageSource.IsFromMe:
-            return
-
-        # Test response to see if messsage logging and building works properly
-        if text == "ping":
-            rows = conn.execute(
-                """
-                SELECT text, sender_name, mentioned_jids, quoted_text FROM messages
-                WHERE chat_jid = ?
-                ORDER BY timestamp DESC
-                LIMIT 10;
-                """,
-                (str(chat),),
-            ).fetchall()
-            # Construct agent context with name and message content pairs
-            message_str = ""
-            for text, name, mentioned_jids, quoted_text in rows:
-                name = name or "Unknown"
-                first_name = name.split(" ")[0]
-                if mentioned_jids:
-                    jids = json.loads(mentioned_jids)
-                    for jid in jids:
-                        id = jid.split("@")[0]
-                        server = jid.split("@")[1]
-                        mentioned_name = resolve_name_jid(id, server)
-                        text = text.replace(f"@{jid}", f"@{mentioned_name}")
-                if quoted_text:
-                    quoted_text = (
-                        quoted_text
-                        if len(quoted_text) <= 80
-                        else f"{quoted_text[:80]}..."
-                    )
-                    message_str += f'{first_name} replying to "{quoted_text}": {text}'
-                else:
-                    message_str += f"{first_name}: {text}\n"
-
-            client.reply_message(message_str, messageEv)
-
-    if messageEv.Info.MessageSource.IsFromMe and (
-        "/ai" in text[0:3] or "/herald" in text[0:7]
-    ):
-        response = start_conversation(messageEv, text) or "Groq Error"
-        client.reply_message(response, messageEv)

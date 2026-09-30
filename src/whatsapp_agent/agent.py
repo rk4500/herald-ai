@@ -23,16 +23,20 @@ def get_current_time() -> str:
     return india_time.strftime("%Y-%m-%d %H:%M")
 
 
-def get_last_activity_time() -> float:
+def get_last_activity_time(chat_jid: JID) -> float:
     with db_lock, conn:
-        activity_time: int = conn.execute("""
+        activity_time: int = conn.execute(
+            """
         SELECT MAX(ts) from (
-            SELECT timestamp as ts from messages
+            SELECT timestamp AS ts FROM messages WHERE chat_jid = ?
             UNION ALL
-            SELECT timestamp as ts from reactions
+            SELECT timestamp AS ts FROM reactions WHERE chat_jid = ?
         )
-        """).fetchone()[0]
+        """,
+            (str(chat_jid), str(chat_jid)),
+        ).fetchone()[0]
         if activity_time:
+            print(datetime.fromtimestamp(activity_time / 1000))
             return activity_time
     return 0
 
@@ -90,8 +94,9 @@ def get_recent_messages(
 
 
 def get_messages_since_active(chat_jid: JID) -> str:
-    messages = get_messages(chat_jid, get_last_activity_time())
+    messages = get_messages(chat_jid, get_last_activity_time(chat_jid))
     if messages:
+        print(messages)
         return messages
     return "No new messages since last active. Tell the user they didn't miss anything in one short sentance."
 

@@ -58,6 +58,7 @@ RUN mkdir -p /app/data && chown nonroot:nonroot /app/data
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
+ENV PYTHONUNBUFFERED=1
 
 USER nonroot
 
